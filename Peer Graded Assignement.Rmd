@@ -1,0 +1,84 @@
+---
+title: "Practical Machine Learning Peer Graded Assignment"
+author: "Wenhao Xia"
+date: "Feburary 19, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Description & Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+In this project, we will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participant They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The five ways are exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Only Class A corresponds to correct performance. The goal of this project is to predict the manner in which they did the exercise, i.e., Class A to E. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Load the required packages
+```{r load package, results="hide"}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(rattle)
+library(e1071)
+```
+
+##download the data explore the data set
+
+```{r download data, results="hide"}
+trainUrl = "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl = "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training = read.csv(url(trainUrl), na.strings=c("NA","#DIV/0!",""))
+testing = read.csv(url(testUrl), na.strings=c("NA","#DIV/0!",""))
+```
+
+##exploratory data analysis
+A simple look at the data shoulds 19622 observations in training dataset and 160 variables. 
+```{r explore data, results="hide"}
+str(training)
+```
+Looking at the data, a lot of variables are no collected and is simply NA. Also, we notice that some variables such as timestamp and name is unrelated to our response variable of interest so we will remove those variables from the dataset.
+
+## removing useless variables from the dataset
+```{r remove variable, results="hide"}
+training_noNA = training[, colSums(is.na(training)) == 0]
+testing_noNA = testing[, colSums(is.na(testing)) == 0]
+trainData = training_noNA[, -c(1:7)]
+testData = testing_noNA[, -c(1:7)]
+```
+
+## Then before we test, we first split the dataset into a training and validation set
+```{r splitvariable, results="hide"}
+set.seed(11111) 
+inTrain = createDataPartition(trainData$classe, p = 0.6, list = FALSE)
+train = trainData[inTrain, ]
+valid = trainData[-inTrain, ]
+```
+
+We choose a 60/40 split
+
+## Simple rpart classifier
+Since the variable we're trying to predict is a class variable, we'll start with a simple repeated partition classifier to see how well it does.
+```{r simple rpart}
+model1 = rpart(classe ~ ., data=train, method="class")
+fancyRpartPlot(model1)
+predictions1 = predict(model1, valid, type = "class")
+cm1 = confusionMatrix(predictions1, valid$classe)
+cm1
+```
+
+Looking at the result of the simpel classifier, we see that validation dataset still shows a higher error rate (73.27% accuracy). My guess is that we simply have too many variables that are correlated so we'll try a different classifier.
+
+##Random forest classifier
+
+```{r random forest}
+model2 = randomForest(classe ~ ., data=train)
+prediction2 <- predict(model2, valid, type = "class")
+cm2 = confusionMatrix(prediction2, valid$classe)
+cm2
+```
+
+The random forest classifier shows an accuracy rate of 99.32%, an excellent value making this a good prediction classifier.
